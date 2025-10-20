@@ -240,34 +240,44 @@ class FFmpegApp:
 
 
     def adjust_time(self, timestamp, delay):
-        """
-        将形如 'HH:MM:SS,mmm' 或 'H:MM:SS.mmm' 的时间戳按照 delay（秒）做平移，
-        并输出与输入同样格式的时间戳。
-        """
-        # 1) 识别原始分隔符（逗号 or 点）
         sep = "," if "," in timestamp else "."
-        # 2) 统一替换为点，方便 split
-        ts = timestamp.replace(",", ".")
-        # 拆分时分秒和毫秒
-        time_part, ms_part = ts.split(".", 1)
-        hours, minutes, seconds = time_part.split(":")
+        is_ass = (sep == ".")  # 判断是否是 ASS 格式
         
-        # 转成总秒（浮点）
-        total = int(hours) * 3600 + int(minutes) * 60 + int(seconds) + int(ms_part) / 1000.0
+        ts = timestamp.replace(",", ".")
+        parts = ts.split(".")
+        time_part = parts[0]
+        ms_part = parts[1] if len(parts) > 1 else "00"
+
+        hours, minutes, seconds = map(int, time_part.split(":"))
+        total = hours * 3600 + minutes * 60 + seconds + float(f"0.{ms_part}")  # 百分秒或毫秒都能解析
         total += delay
         if total < 0:
-            total = 0
-        
-        # 拆回 h,m,s,ms
+            total = 0.0
+
         h_new = int(total // 3600)
         total %= 3600
         m_new = int(total // 60)
         total %= 60
         s_new = int(total)
-        ms_new = int(round((total - s_new) * 1000))  # 保留三位毫秒
-        
-        # 输出时补零，并用原始 sep 连接
-        return f"{h_new:02}:{m_new:02}:{s_new:02}{sep}{ms_new:03}"
+        fraction = total - s_new
+
+        if is_ass:
+            # .ass 用 2 位百分秒
+            cs_new = int(round(fraction * 100))
+            # 避免边界溢出（99 -> +1s）
+            if cs_new >= 100:
+                cs_new -= 100
+                s_new += 1
+            # 输出不补零小时
+            return f"{h_new}:{m_new:02}:{s_new:02}.{cs_new:02}"
+        else:
+            # .srt 用 3 位毫秒
+            ms_new = int(round(fraction * 1000))
+            if ms_new >= 1000:
+                ms_new -= 1000
+                s_new += 1
+            return f"{h_new:02}:{m_new:02}:{s_new:02},{ms_new:03}"
+
     
 
 
