@@ -22,3 +22,4 @@
 ## 注意
 若提示main thread is not in main loop,请卸载ttkthemes后再重试。（pip uninstall ttkthemes）
 
+Email: 1511942865@qq.com
